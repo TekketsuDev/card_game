@@ -19,10 +19,10 @@ Object CreateObject(Vector2 position, Vector2 size, Color color) {
     .position = position,
     .size = size,
     .color = color,
-    .draggable = draggable,
-    .draggOffset = dragOffset,
-    .prevPos = prevPos,
-    .handSlot = .handSlot
+    .draggable = false,
+    .dragOffset = (Vector2){0, 0},     // default
+    .prevPos    = (Vector2){0, 0},     // default
+    .handSlot   = -1
     //Avoid order initialization
   };
 }
