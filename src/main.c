@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include "resource_dir.h"
 #include "object.h"
+#include "card_animation.h"
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -60,8 +61,8 @@ static void LayoutZones(void) {
     ZPlay = (Zone){ "PLAY", (Rectangle){ 0, hBoss, w, hMid }, GetColor(0x22332233), DARKGREEN };
     ZHand = (Zone){ "HAND", (Rectangle){ 0, h - hHand, w, hHand }, GetColor(0x2a1b1f55), MAROON };
 
-    ZDeck      = (Zone){ "DECK",        (Rectangle){ margin, yMidCenter, wDeck, hDeck }, GetColor(0x2a1b1f55), RAYWHITE   };
-    ZEnemyDeck = (Zone){ "ENEMY DECK",  (Rectangle){ w - margin - wDeck, yMidCenter, wDeck, hDeck }, GetColor(0x2a1b1f55), DARKBROWN };
+    ZDeck = (Zone){ "DECK", (Rectangle){ margin, yMidCenter, wDeck, hDeck }, GetColor(0x2a1b1f55), RAYWHITE   };
+    ZEnemyDeck = (Zone){ "ENEMY DECK", (Rectangle){ w - margin - wDeck, yMidCenter, wDeck, hDeck }, GetColor(0x2a1b1f55), DARKBROWN };
 }
 
 static void DrawZone(const Zone* z) {
@@ -101,19 +102,49 @@ static void LayoutHandRow(Object hand[], int n) {
 
 int main (void) {
     
-     
+    /* 
     SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI); 
     InitWindow(screenWidth, screenHeight, "card game");
     SearchAndSetResourceDir("resources"); 
     srand((unsigned)time(NULL)); 
     SetTargetFPS(60); 
     LayoutZones();
-  /* End Monitor and Screen Resolution */
+
+    */
+    // --- Window init & sizing ---
+SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
+
+// 1) Calcula tamaño deseado (85% del monitor primario) con mínimos
+int monPre   = 0;
+int scrW     = GetMonitorWidth(monPre);
+int scrH     = GetMonitorHeight(monPre);
+int winW     = (int)(scrW * 0.85f);
+int winH     = (int)(scrH * 0.85f);
+if (winW < 1024) winW = 1024;
+if (winH < 720)  winH = 720;
+
+InitWindow(winW, winH, "card game");
+
+int monNow = GetCurrentMonitor();
+int posX   = (GetMonitorWidth(monNow)  - winW) / 2;
+int posY   = (GetMonitorHeight(monNow) - winH) / 2;
+SetWindowPosition(posX, posY);
+
+SetWindowMinSize(900, 600);               // ajusta a tu UI
+
+Vector2 dpi = GetWindowScaleDPI();        // dpi.x/dpi.y típicamente 1.0 o >1.0
+
+SearchAndSetResourceDir("resources");
+srand((unsigned)time(NULL));
+SetTargetFPS(60);
+
+LayoutZones();
 
 
-  Object deck[OBJECT_COUNT];
-  Object hand[MAX_HAND];
-  
+    Object deck[OBJECT_COUNT];
+    Object hand[MAX_HAND];
+    ParticleEmitter emit[MAX_HAND]; 
+
   for (int i = 0; i < OBJECT_COUNT; i++) {
 
     deck[i] = CreateObject(
@@ -128,6 +159,7 @@ int main (void) {
       CARD_SIZE,
       GetRandColor()
     );
+    InitParticles(&emit[i]);
   }
 
     LayoutHandRow(hand, MAX_HAND); 
@@ -136,7 +168,7 @@ int main (void) {
 
 	while (!WindowShouldClose()) {
         
-        //if (IsWindowResized()) { LayoutZones(); LayoutHandRow(hand, MAX_HAND); }
+        if (IsWindowResized()) { LayoutZones(); LayoutHandRow(hand, MAX_HAND); }
         Vector2 mPos = GetMousePosition();
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             for (int i = MAX_HAND - 1; i >= 0; --i) {
@@ -161,24 +193,44 @@ int main (void) {
         }
 	BeginDrawing();
 
-	ClearBackground(White);
+	ClearBackground(WHITE);
     DrawZone(&ZBoss);    
     DrawZone(&ZDeck);
     DrawZone(&ZPlay);
     DrawZone(&ZHand);;
     DrawZone(&ZEnemyDeck);
     
-/*
+    /*
     for (int i = 0; i < OBJECT_COUNT; i++) {
-      DrawObject(deck[i]);
+        DrawObject(deck[i]);
     }
-*/
+    */
+
+    // --- Partículas por carta (recortadas a la carta) ---
+    float dt = GetFrameTime();
+    for (int i = 0; i < MAX_HAND; ++i) {
+
+    // Opcional: sólo si la carta está en la zona PLAY
+    bool inPlay = CardInZone(&hand[i], &ZPlay);
+
+    // Spawns por frame (ajusta según rendimiento/look)
+    int spawns = inPlay ? 2 : 0;   // p.ej. 2 cuando está en PLAY, 0 si no
+    for (int k = 0; k < spawns; ++k) {
+        CreateParticleAtObject(&emit[i], &hand[i]);
+    }
+
+    ParticleUpdate(&emit[i], dt);
+
+    // Dibujo RECORTADO al rectángulo de la carta
+    ParticleDraw(&emit[i], &hand[i]);
+    }
     for (int i = 0; i < MAX_HAND; i++) {
       DrawObject(hand[i]);
     }
+
 		EndDrawing();
 	}
-
+    
 	CloseWindow();
 	return 0;
 }

@@ -1,0 +1,165 @@
+#ifndef ANIMATION_H_
+#define ANIMATION_H_
+
+#include <math.h>
+#include <stdlib.h>
+#include "raylib.h"
+#include "object.h"
+
+#ifndef MAX_PARTICLE_HAND
+#define MAX_PARTICLE_HAND 230
+#endif
+
+enum TypeParticle {
+    FIRE_PARTICLE, //red 
+    HEALTH_PARTICLE, //green
+    DRAW_PARTICLE, //purple
+    RECYCLE_PARTICLE //black grey
+};
+
+typedef struct Particle {
+
+    Vector2 acceleration;
+    Vector2 position;
+    Vector2 velocity;
+    float size;
+    float life, lifeMax;
+    int alive;
+    Color color;
+    enum TypePaticle typeParticle;
+
+} Particle;
+
+typedef struct ParticleEmitter {
+    Particle p[MAX_PARTICLE_HAND];
+    int count;
+} ParticleEmitter;
+
+static inline float frand(float a, float b) {
+    return a + (float)rand() / (float)RAND_MAX * (b -a);
+}
+
+static void InitParticles (ParticleEmitter *pe) {
+    pe->count = 0;
+}
+
+static inline void CreateParticleAtObject (ParticleEmitter *pe, const Object *object) {
+    
+    if (pe->count >= MAX_PARTICLE_HAND) {  return; }
+    int edge = rand() % 4;
+
+    // Attack is going to happen modifiy the edge to the top of the card
+    // if ( triggerAtack) { edge = 0;}
+    Vector2 relativePosition = object->position;
+    Vector2 relativeSize = object->size;
+
+    Vector2 initPosition, initVelocity;
+    
+    switch (edge) {
+        case 0:
+            //borde superior
+            initPosition.x = frand(relativePosition.x + 2, relativePosition.x + relativeSize.x - 2);
+            initPosition.y = relativePosition.y - frand(0,8);
+            initVelocity.x = frand(-10,10) * 0.02f;
+            initVelocity.y = frand( -35, -20) * 0.02f;
+            break;
+        case 1:
+            //borde inferior
+            initPosition.x = frand(relativePosition.x + 2, relativePosition.x + relativeSize.x - 2);
+            initPosition.y = relativePosition.y + relativeSize.y + frand(0,8);
+            initVelocity.x = frand(-10,10) * 0.02f;
+            initVelocity.y = frand( 20, 35) * 0.02f;
+            break;
+        case 2:
+            //borde izquierdo
+            initPosition.x = relativePosition.x - frand(0, 8);
+            initPosition.y = frand(relativePosition.y + 2, relativeSize.y + relativePosition.y - 2);
+            initVelocity.x = frand(-35,-20) * 0.02f;
+            initVelocity.y = frand( -10, 10) * 0.02f;
+            break;
+        
+        default:
+            //borde derecho
+            initPosition.x = relativePosition.x + relativeSize.x - frand(0, 8);
+            initPosition.y = frand(relativePosition.y + 2, relativeSize.y + relativePosition.y - 2);
+            initVelocity.x = frand(20,35) * 0.02f;
+            initVelocity.y = frand( -10, 10) * 0.02f;
+            break;
+    }
+
+    float size   = frand(3.0f, 6.0f);
+    float life   = frand(0.4f, 0.8f);
+    Color c      = (Color){ 255, (unsigned char)frand(120, 200), 20, 255 };
+
+    
+    Particle fireParticle = (Particle) {
+        .acceleration = (Vector2){0.0f, -15.0f},
+        .position = initPosition,
+        .velocity = initVelocity,
+        .size = size,
+        .life = life,
+        .lifeMax = life,
+        .color = c,
+        .alive = 1,
+        .typeParticle = FIRE_PARTICLE
+    };
+
+    pe->p[pe->count++] = fireParticle;
+
+}
+
+static inline void ParticleUpdate (ParticleEmitter *pe, float deltatime) {
+    int write = 0;
+
+    for (int i = 0; i < pe->count; i++) {
+        
+     fireParticle *q = &pe->p[i];
+        if (!q->alive) continue;
+
+        // gravedad ligera hacia arriba para "llama" (negativa en Y)
+        q->velocity.x += q->acceleration.x * deltatime
+        q->velocity.y -= 15.0f * deltatime;
+        q->position.x += q->velocity.x;
+        q->position.y += q->velocity.y;
+
+        q->life -= dt;
+        if (q->life <= 0.0f) { q->alive = 0; continue; }
+
+        // desvanecer alpha con la vida
+        float t = q->life / q->lifeMax;
+        q->color.a = (unsigned char)(255.0f * t);
+
+        // compacta
+        if (write != i) pe->p[write] = *q;
+        write++;
+    }
+    pe->count = write;
+}
+
+static inline void ParticleDraw (ParticleEmitter *pe, const Object *object) {
+    BeginScissorMode (
+        (int)object->position.x,
+        (int)object->position.y,
+        (int)object->size.x,
+        (int)object->size.y
+    );
+
+    for (int i = 0; i < pe->count; i++) { 
+        const FireParticle *q = &pe->p[i];
+
+        DrawRectangle(
+            (int)(q->position.x - q->size*0.5f),
+            (int)(q->position.y - q->size*0.5f),
+            (int)(q->size), 
+            (int)(q->size),
+            q->color
+        );
+
+}
+    EndScissorsMode();
+}
+
+#endif
+
+
+
